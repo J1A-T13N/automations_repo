@@ -1,0 +1,281 @@
+- id: foodpanda_summary_notification
+  alias: 通知-熊貓訂單狀態
+  description: ""
+  trigger:
+    - platform: numeric_state
+      entity_id:
+        - sensor.foodpanda_by_jiatien_orders
+      above: 0
+      id: new_order
+    - platform: state
+      entity_id:
+        - sensor.foodpanda_by_jiatien_orders
+      attribute: title_summary
+      id: order_summary
+    - platform: zone
+      entity_id: device_tracker.foodpanda_by_jiatien
+      zone: zone.home
+      event: enter
+      id: arriving
+      enabled: true
+    - platform: state
+      entity_id:
+        - device_tracker.foodpanda_by_jiatien
+      for:
+        hours: 0
+        minutes: 1
+        seconds: 0
+      to: not_home
+      id: leaving
+    - platform: template
+      value_template: >-
+        {% set longitude = state_attr('sensor.foodpanda_by_jiatien_orders',
+        'longitude')|float if state_attr('sensor.foodpanda_by_jiatien_orders',
+        'longitude')|string|length > 0 else 0.0 %}
+  
+        {% set bool_longitude = not
+        state_attr('device_tracker.foodpanda_by_jiatien', 'longitude') ==
+        longitude %}
+  
+        {% set latitude = state_attr('sensor.foodpanda_by_jiatien_orders',
+        'latitude')|float if state_attr('sensor.foodpanda_by_jiatien_orders',
+        'latitude')|string|length > 0 else 0.0 %}
+  
+        {% set bool_latitude = not
+        state_attr('device_tracker.foodpanda_by_jiatien', 'latitude') == latitude
+        %}
+  
+  
+        {{ bool_longitude or bool_latitude }}
+      id: courier_tracker
+  condition: []
+  action:
+    - choose:
+        - conditions:
+            - condition: trigger
+              id:
+                - new_order
+          sequence:
+            - service: script.line_bubble_template
+              data:
+                text: >-
+                  {{ state_attr('sensor.foodpanda_by_jiatien_orders',
+                  'title_summary') }}。
+                image: food_delivery.png
+                title: 熊貓訂單通知
+                description: |-
+                  {{
+                    "發送時間：" + as_timestamp(now())|timestamp_custom('%H:%M:%S')
+                  }}
+                debug: true
+                alternative: >-
+                  {{ state_attr('sensor.foodpanda_by_jiatien_orders',
+                  'title_summary') }}。
+                source: 智慧居家
+                detail: |-
+                  {% set detail = [
+                    {
+                      "type": "text",
+                      "text": "餐廳：" + state_attr('sensor.foodpanda_by_jiatien_orders',
+                      'restaurant_name')|string,
+                      "margin": "md",
+                      "wrap": true
+                    },
+                    {
+                      "type": "text",
+                      "text": "預估外送時間：" + state_attr('sensor.foodpanda_by_jiatien_orders', 'eta')|string + "分鐘",
+                      "margin": "md",
+                      "wrap": true
+                    }
+                  ]%}
+                  {{ detail|to_json }}
+            - service: script.garage_door_auto
+              data: {}
+        - conditions:
+            - condition: trigger
+              id:
+                - arriving
+          sequence:
+            - service: script.line_bubble_template
+              data:
+                text: 外送員已抵達門口。
+                image: food_delivery.png
+                title: 熊貓訂單通知
+                description: |-
+                  {{
+                    "發送時間：" + as_timestamp(now())|timestamp_custom('%H:%M:%S')
+                  }}
+                debug: true
+                actions: >-
+                  [{"type":"button","action":{"type":"uri","label":"查看畫面","uri":"https://my.ip-cam.com/front_door"}}]
+                source: 智慧居家
+                alternative: 外送員已抵達門口。
+                detail: |-
+                  {% set detail = [
+                    {
+                      "type": "text",
+                      "text": "餐廳：" + state_attr('sensor.foodpanda_by_jiatien_orders',
+                      'restaurant_name')|string,
+                      "margin": "md",
+                      "wrap": true
+                    },
+                    {
+                      "type": "separator",
+                      "margin": "md"
+                    },
+                    {
+                      "type": "text",
+                      "text": "外送員：" + state_attr('sensor.foodpanda_by_jiatien_orders',
+                      'courier_name')|string,
+                      "margin": "md",
+                      "wrap": true
+                    },
+                    {
+                      "type": "text",
+                      "text": "聯絡電話：" + state_attr('sensor.foodpanda_by_jiatien_orders',
+                      'courier_phone')|string,
+                      "margin": "md",
+                      "wrap": true
+                    }
+                  ]%}
+                  {{ detail|to_json }}
+            - if:
+                - condition: state
+                  entity_id: binary_sensor.garage_door_status
+                  state: "off"
+              then:
+                - if:
+                    - condition: state
+                      entity_id: input_boolean.garage_door_auto
+                      state: "on"
+                  then:
+                    - device_id: a22b7fe0a733668b40a84ae5f2f1c1fd
+                      domain: cover
+                      entity_id: 4655fb2331f55cb14405dffd2a653317
+                      type: set_position
+                      position: 50
+                  else:
+                    - service: script.garage_door_control
+                      data: {}
+        - conditions:
+            - condition: trigger
+              id:
+                - leaving
+          sequence:
+            - service: script.line_bubble_template
+              data:
+                text: 訂單完成。
+                image: food_delivery.png
+                title: 熊貓訂單通知
+                description: |-
+                  {{
+                    "發送時間：" + as_timestamp(now())|timestamp_custom('%H:%M:%S')
+                  }}
+                debug: true
+                source: 智慧居家
+                alternative: 訂單完成。
+            - if:
+                - condition: state
+                  entity_id: binary_sensor.garage_door_status
+                  state: "on"
+              then:
+                - if:
+                    - condition: state
+                      entity_id: input_boolean.garage_door_auto
+                      state: "on"
+                  then:
+                    - device_id: a22b7fe0a733668b40a84ae5f2f1c1fd
+                      domain: cover
+                      entity_id: 4655fb2331f55cb14405dffd2a653317
+                      type: close
+                    - service: input_boolean.turn_off
+                      target:
+                        entity_id: input_boolean.garage_door_auto
+                      data: {}
+                  else:
+                    - service: script.garage_door_control
+                      data: {}
+        - conditions:
+            - condition: trigger
+              id:
+                - courier_tracker
+          sequence:
+            - service: device_tracker.see
+              data:
+                dev_id: foodpanda_by_jiatien
+                gps: >-
+                  {% set latitude =
+                  state_attr('sensor.foodpanda_by_jiatien_orders', 'latitude') %}
+                  {% set longitude =
+                  state_attr('sensor.foodpanda_by_jiatien_orders', 'longitude') %}
+                  {{ [latitude|float if latitude|string|length > 0 else 0.0,
+                  longitude|float if longitude|string|length > 0 else 0.0] }}
+                gps_accuracy: 100
+                host_name: >-
+                  {{ state_attr('sensor.foodpanda_by_jiatien_orders',
+                  'courier_name') }}
+        - conditions:
+            - condition: and
+              conditions:
+                - condition: trigger
+                  id:
+                    - order_summary
+                - condition: template
+                  value_template: >-
+                    {{ not state_attr('sensor.foodpanda_by_jiatien_orders',
+                    'title_summary') == '餐廳已接受訂單' and not
+                    state_attr('sensor.foodpanda_by_jiatien_orders',
+                    'subtitle_summary') == 'OTP_TIME_ESTIMATE ANYTIME_NOW' }}
+          sequence:
+            - service: script.line_bubble_template
+              data:
+                text: >-
+                  {{ state_attr('sensor.foodpanda_by_jiatien_orders',
+                  'title_summary') }}
+                image: food_delivery.png
+                title: 熊貓訂單通知
+                description: |-
+                  {{
+                    "發送時間：" + as_timestamp(now())|timestamp_custom('%H:%M:%S')
+                  }}
+                debug: true
+                alternative: >-
+                  {{ state_attr('sensor.foodpanda_by_jiatien_orders',
+                  'title_summary') }}
+                source: 智慧居家
+                detail: |-
+                  {% set detail = [
+                    {
+                      "type": "text",
+                      "text": "餐廳：" + state_attr('sensor.foodpanda_by_jiatien_orders',
+                      'restaurant_name')|string,
+                      "margin": "md",
+                      "wrap": true
+                    },
+                    {
+                      "type": "text",
+                      "text": "預估外送時間：" + state_attr('sensor.foodpanda_by_jiatien_orders', 'eta')|string + "分鐘",
+                      "margin": "md",
+                      "wrap": true
+                    },
+                    {
+                      "type": "separator",
+                      "margin": "md"
+                    },
+                    {
+                      "type": "text",
+                      "text": "外送員：" + state_attr('sensor.foodpanda_by_jiatien_orders',
+                      'courier_name')|string,
+                      "margin": "md",
+                      "wrap": true
+                    },
+                    {
+                      "type": "text",
+                      "text": "聯絡電話：" + state_attr('sensor.foodpanda_by_jiatien_orders',
+                      'courier_phone')|string,
+                      "margin": "md",
+                      "wrap": true
+                    }
+                  ]%}
+                  {{ detail|to_json }}
+  mode: single
