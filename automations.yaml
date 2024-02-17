@@ -29,24 +29,12 @@
       id: leaving
     - platform: template
       value_template: >-
-        {% set longitude = state_attr('sensor.foodpanda_by_jiatien_orders',
-        'longitude')|float if state_attr('sensor.foodpanda_by_jiatien_orders',
-        'longitude')|string|length > 0 else 0.0 %}
-  
-        {% set bool_longitude = not
-        state_attr('device_tracker.foodpanda_by_jiatien', 'longitude') ==
-        longitude %}
-  
-        {% set latitude = state_attr('sensor.foodpanda_by_jiatien_orders',
-        'latitude')|float if state_attr('sensor.foodpanda_by_jiatien_orders',
-        'latitude')|string|length > 0 else 0.0 %}
-  
-        {% set bool_latitude = not
-        state_attr('device_tracker.foodpanda_by_jiatien', 'latitude') == latitude
-        %}
-  
-  
-        {{ bool_longitude or bool_latitude }}
+        {% set longitude = state_attr('sensor.foodpanda_by_jiatien_orders', 'longitude')|float if state_attr('sensor.foodpanda_by_jiatien_orders', 'longitude')|string|length > 0 else 0.0 %}
+        {% set bool_longitude = not state_attr('device_tracker.foodpanda_by_jiatien', 'longitude') == longitude %}
+        {% set latitude = state_attr('sensor.foodpanda_by_jiatien_orders', 'latitude')|float if state_attr('sensor.foodpanda_by_jiatien_orders', 'latitude')|string|length > 0 else 0.0 %}
+        {% set bool_latitude = not state_attr('device_tracker.foodpanda_by_jiatien', 'latitude') == latitude %}
+
+        {{ (not longitude == 0 and not latitude == 0) and (bool_longitude or bool_latitude) 
       id: courier_tracker
   condition: []
   action:
